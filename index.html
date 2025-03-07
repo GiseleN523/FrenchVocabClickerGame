@@ -5,6 +5,11 @@
         <title>French Vocab Practice</title>
         <script src="p5.min.js"></script>
         <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+            }
             body {
                 text-align: center;
             }
@@ -20,9 +25,24 @@
                 color: #ebd08d;
                 cursor: pointer;
             }
+            #infoBox {
+                height: 100vh;
+                font-size: 150%;
+                padding: 10%;
+            }
+            button#infoButton {
+                font-size: 150%;
+                background-color: white;
+                color: black;
+                padding: .2em .5em;
+                border-radius: 5px;
+            }
+            button#infoButton:hover {
+                background-color: black;
+                color: white;
+                cursor: pointer;
+            }
         </style>
-    </head>
-    <body>
         <script>
             let roomImage;
             let score; // total score
@@ -33,7 +53,12 @@
             let buttonMasc;
             let showFeedbackRect = null; // function that shows "feedback rectangle" (green or red rectangle visible to player after they make a guess)
             let showFeedbackRectUntil = Date.now(); // feedback rectangle is visible until this time
+            let infoButton;
+            let infoBoxOpen = false;
+            let imageXTrans;
+            let imageSize;
 
+            // zone coordinates assume a 1000x1000 image; this will be adjusted later
             let zones = [
                 {word: "Peinture", feminine: true, x1: 687, y1:210, x2: 830, y2: 345},
                 {word: "Chaise", feminine: true, x1: 0, y1:430, x2: 155, y2: 675},
@@ -62,9 +87,20 @@
             }
 
             function setup() {
-                createCanvas(1000, 1000);
-                textAlign(CENTER, CENTER);
-                background(0);
+                createCanvas(windowWidth, windowHeight);
+                background(255);
+                imageXTrans = max((width-height)/2, 0);
+                imageSize = min(width, height); // set image dimensions to fill full width/height of window (whichever is smaller)
+                adjustZoneCoords();
+
+                infoButton = createButton('?');
+                infoButton.id("infoButton");
+                infoButton.position(10, height*.92);
+
+                window.onclick = function(e) {
+                    e.target.id === "infoButton" || e.target.id === "githubLink" && !infoBoxOpen ? infoBoxOpen = true : infoBoxOpen = false;
+                }
+
                 score = 0;
                 buttonFem = createButton('Feminine');
                 buttonMasc = createButton('Masculine');
@@ -73,62 +109,86 @@
                 nextTurn();
             }
 
-            function draw() {
-                image(roomImage, 0, 0);
-                cursor('default');
-                checkMouseover();
-                fill('white');
-                rect(-2, 15, windowWidth, 60);
-                fill('black');
-                textSize(30);
-                textAlign(CENTER, CENTER);
-                text("Find this object: " + currentZone.word, 500, 50);
-                text("Score: " + score, 920, 50);
-                //text("(" + int(mouseX) + ", " + int(mouseY) +")", mouseX, mouseY); // display cursor coordinates
+            // resize canvas if the window is resized (adjusts height and width variables automatically)
+            function windowResized() {
+                imageXTrans = max((width-height)/2, 0);
+                console.log(imageXTrans);
+                imageSize = min(width, height); // set image dimensions to fill full width/height of window (whichever is smaller)
+                image(roomImage, imageXTrans, 0, imageSize, imageSize);
+                adjustZoneCoords();
+                resizeCanvas(windowWidth, windowHeight);
+            }
 
-                buttonsVisible ? buttonFem.position(500, 500) : buttonFem.position(500, -150);
-                buttonsVisible ? buttonMasc.position(800, 500) : buttonMasc.position(800, -150);
-                
-                if(buttonsVisible || showFeedbackRectUntil > Date.now()) {
-                    showFeedbackRect();
+            // adjust zone coordinates for actual image size (not 1000x1000 like is originally assumed)
+            function adjustZoneCoords() {
+                zones.forEach(function(z) {
+                    z.y1_current = z.y1 * (imageSize/1000);
+                    z.y2_current = z.y2 * (imageSize/1000);
+                    z.x1_current = (z.x1 * (imageSize/1000)) + imageXTrans;
+                    z.x2_current = (z.x2 * (imageSize/1000)) + imageXTrans;
+                })
+            }
+
+            function draw() {
+                if(infoBoxOpen) {
+                    document.getElementById("infoBox").style.display = "block";
                 }
-                if(zones.length < 1) { // game over
-                    fill('#ebd08d');
-                    rect(300, 400, 400, 200);
-                    stroke('black');
+                else {
+                    document.getElementById("infoBox").style.display = "none";
+                    image(roomImage, imageXTrans, 0, imageSize, imageSize);
+                    cursor('default');
+                    checkMouseover();
+                    fill('white');
+                    rect(-2, 15, windowWidth, 60);
                     fill('black');
-                    text("Game Over!", 500, 475);
-                    text("Final Score: " + score + "/120", 500, 525);
+                    textSize(30);
+                    textAlign(CENTER, CENTER);
+                    text("Find this object: " + currentZone.word, width/2, 50);
+                    text("Score: " + score, width-100, 50);
+                    //text("(" + int(mouseX) + ", " + int(mouseY) +")", mouseX, mouseY); // display cursor coordinates
+
+                    buttonsVisible ? buttonFem.position((width/2)-buttonFem.width-10, height/2) : buttonFem.position((width/2)-buttonFem.width-10, -150);
+                    buttonsVisible ? buttonMasc.position((width/2)+10, height/2) : buttonMasc.position((width/2)+10, -150);
+                    
+                    if(buttonsVisible || showFeedbackRectUntil > Date.now()) {
+                        showFeedbackRect();
+                    }
+                    if(zones.length < 1) { // game over
+                        fill('#ebd08d');
+                        rect(width*.2, height*.3, width*.6, height*.4);
+                        stroke('black');
+                        fill('black');
+                        text("Game Over!", width*.5, height*.45);
+                        text("Final Score: " + score + "/120", width*.5, height*.55);
+                    }
                 }
             }
 
             function checkMouseover() {
                 if(!buttonsVisible && showFeedbackRectUntil <= Date.now() && zones.length > 0) {
                     zones.forEach(function(zone) {
-                        if(mouseX > zone.x1 && mouseX < zone.x2 && mouseY > zone.y1 && mouseY < zone.y2) {
+                        if(mouseX > zone.x1_current && mouseX < zone.x2_current && mouseY > zone.y1_current && mouseY < zone.y2_current) {
                             cursor('pointer');
                             fill(255, 255, 0, 100);
-                            rect(zone.x1, zone.y1, zone.x2-zone.x1, zone.y2-zone.y1);
+                            rect(zone.x1_current, zone.y1_current, zone.x2_current-zone.x1_current, zone.y2_current-zone.y1_current);
                             return;
                         }
                     });
                 }
             }
 
-            function mousePressed() {
-                if(!buttonsVisible && showFeedbackRectUntil <= Date.now() && zones.length > 0) {
+            function mousePressed(e) {
+                if(e.target.id != "infoButton" && !buttonsVisible && showFeedbackRectUntil <= Date.now() && zones.length > 0) {
                     zones.forEach(function(zone) {
-                        if(mouseX > zone.x1 && mouseX < zone.x2 && mouseY > zone.y1 && mouseY < zone.y2) {
+                        if(mouseX > zone.x1_current && mouseX < zone.x2_current && mouseY > zone.y1_current && mouseY < zone.y2_current) {
                             if(zone === currentZone) {
-                                text("Correct!", mouseX, mouseY);
-                                showFeedbackRect = function() {fill(0, 255, 0, 100); rect(zone.x1, zone.y1, zone.x2-zone.x1, zone.y2-zone.y1)};
+                                showFeedbackRect = function() {fill(0, 255, 0, 100); rect(zone.x1_current, zone.y1_current, zone.x2_current-zone.x1_current, zone.y2_current-zone.y1_current)};
                                 buttonsVisible = true;
                                 score += scorePossible;
                                 scorePossible = 1;
                             }
                             else {
-                                text("Incorrect...", mouseX, mouseY);
-                                showFeedbackRect = function() {fill(255, 0, 0, 100); rect(zone.x1, zone.y1, zone.x2-zone.x1, zone.y2-zone.y1)};
+                                showFeedbackRect = function() {fill(255, 0, 0, 100); rect(zone.x1_current, zone.y1_current, zone.x2_current-zone.x1_current, zone.y2_current-zone.y1_current)};
                                 showFeedbackRectUntil = Date.now() + 750;
                                 scorePossible > 1 ? scorePossible -= 1 : scorePossible = 0;
                             }
@@ -171,5 +231,17 @@
             }
 
         </script>
+    </head>
+    <body>
+        <div id="infoBox">
+            This game was written in Winter of 2025 using the P5 library, for my Creative Coding and Generative AI class. 
+            It was inspired by geography games where the user has to click on an image to select the correct state/country. 
+            Instead, the user is presented with a room (a bedroom in this case, although the game could easily be extended to 
+            add more rooms), and they have to select the object corresponding to the French word given. Once they find the correct object, 
+            they then have to choose the correct gender (masculine or feminine) for the word. The game ends when they have identified 
+            all objects. The background image for this game was generated using DALL-E, and basic functionality is based on our 
+            professor's demonstration.<br><br>
+            See the code <a id="githubLink" href="https://github.com/GiseleN523/FrenchVocabClickerGame" target="_blank">on Github!</a>
+        </div>
     </body>
 </html>
